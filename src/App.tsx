@@ -178,13 +178,31 @@ export default function App() {
         loadPersistedValue<GmailEmail[]>(`${userPrefix}gmail`, gmailEmails),
         loadPersistedValue<StreakData>(`${userPrefix}streak`, streakData),
       ]).then(([nextTasks, nextCategories, nextSpaces, nextSettings, nextFilters, nextEmails, nextStreak]) => {
-        setTasks(nextTasks);
-        setCategories(nextCategories);
-        setSpaces(nextSpaces);
-        setSettings(nextSettings);
-        setCustomFilters(nextFilters);
-        setGmailEmails(nextEmails);
-        setStreakData(nextStreak);
+        const currentKeys = new Set<string>();
+        const changedKeys = new Set<string>();
+
+        const compareAndSet = <T,>(key: string, nextValue: T, setter: React.Dispatch<React.SetStateAction<T>>) => {
+          const currentValue = (key === 'tasks' ? tasks : key === 'categories' ? categories : key === 'spaces' ? spaces : key === 'settings' ? settings : key === 'filters' ? customFilters : key === 'gmail' ? gmailEmails : streakData) as T;
+          if (JSON.stringify(currentValue) !== JSON.stringify(nextValue)) {
+            changedKeys.add(key);
+            setter(nextValue);
+          }
+        };
+
+        compareAndSet('tasks', nextTasks, setTasks);
+        compareAndSet('categories', nextCategories, setCategories);
+        compareAndSet('spaces', nextSpaces, setSpaces);
+        compareAndSet('settings', nextSettings, setSettings);
+        compareAndSet('filters', nextFilters, setCustomFilters);
+        compareAndSet('gmail', nextEmails, setGmailEmails);
+        compareAndSet('streak', nextStreak, setStreakData);
+
+        if (changedKeys.size > 0) {
+          const activeKey = Array.from(changedKeys)[0];
+          if (activeKey === 'tasks' || activeKey === 'categories' || activeKey === 'spaces' || activeKey === 'settings' || activeKey === 'filters' || activeKey === 'gmail' || activeKey === 'streak') {
+            currentKeys.add(activeKey);
+          }
+        }
       });
     });
 
