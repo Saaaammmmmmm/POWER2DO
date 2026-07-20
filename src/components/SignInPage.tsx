@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Shield, Check, Info, Lock, LogIn } from 'lucide-react';
-import { auth, isFirebaseConfigured, localAuth } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { Mail, Shield, Lock, LogIn } from 'lucide-react';
+import { isFirebaseConfigured, localAuth } from '../lib/firebase';
 
 const persistSignedInUser = (email: string) => {
   if (typeof window === 'undefined') return;
@@ -33,34 +32,9 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
     }
 
     try {
-      if (isFirebaseConfigured && auth) {
-        try {
-          await signInWithEmailAndPassword(auth, targetEmail, targetPassword);
-          persistSignedInUser(targetEmail);
-          onSignIn(targetEmail);
-        } catch (fbErr: any) {
-          // Self-healing credential provider: If user logs in with the required samdonckels@gmail.com/Doing4ever! account
-          // but the Firebase Auth project is empty/has not signed them up, auto-register them seamlessly on-the-fly.
-          const isTargetCreds = targetEmail === 'samdonckels@gmail.com' && targetPassword === 'Doing4ever!';
-          const isUserNotFound = fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-login-credentials';
-          if (isTargetCreds && isUserNotFound) {
-            try {
-              await createUserWithEmailAndPassword(auth, targetEmail, targetPassword);
-              persistSignedInUser(targetEmail);
-              onSignIn(targetEmail);
-              return;
-            } catch (createErr) {
-              console.error('Auto-creation of requested credentials failed:', createErr);
-            }
-          }
-          throw fbErr;
-        }
-      } else {
-        // Fallback local localStorage Auth
-        await localAuth.signIn(targetEmail, targetPassword);
-        persistSignedInUser(targetEmail);
-        onSignIn(targetEmail);
-      }
+      await localAuth.signIn(targetEmail, targetPassword);
+      persistSignedInUser(targetEmail);
+      onSignIn(targetEmail);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Authentication failed. Please check credentials.');

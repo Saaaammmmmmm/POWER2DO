@@ -1,58 +1,8 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  User
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  collection, 
-  query, 
-  getDocs,
-  where
-} from 'firebase/firestore';
-import firebaseConfigJson from '../../firebase-applet-config.json';
+const isFirebaseConfigured = false;
 
-const firebaseConfig = {
-  apiKey: firebaseConfigJson.apiKey || (import.meta as any).env?.VITE_FIREBASE_API_KEY,
-  authDomain: firebaseConfigJson.authDomain || (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: firebaseConfigJson.projectId || (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: firebaseConfigJson.storageBucket || (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: firebaseConfigJson.messagingSenderId || (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: firebaseConfigJson.appId || (import.meta as any).env?.VITE_FIREBASE_APP_ID,
-};
+export { isFirebaseConfigured };
 
-const isFirebaseConfigured = !!(
-  firebaseConfig.apiKey && 
-  firebaseConfig.projectId
-);
-
-let app: any = null;
-let auth: any = null;
-let db: any = null;
-
-if (isFirebaseConfigured) {
-  try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    console.log('Firebase initialized successfully.');
-  } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-  }
-} else {
-  console.log('Firebase credentials missing. Running in client-side fallback mode with password persistence.');
-}
-
-export { auth, db, isFirebaseConfigured };
-
-// Fallback password authentication and Firestore simulation using localStorage
+// Fallback password authentication using localStorage so the app works on Netlify without Firebase.
 export const localAuth = {
   signUp: async (email: string, pass: string) => {
     const users = JSON.parse(localStorage.getItem('local_users') || '{}');
