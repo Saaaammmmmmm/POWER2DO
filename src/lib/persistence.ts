@@ -145,11 +145,13 @@ export async function loadPersistedUserState(userEmail: string, fallback: Persis
   if (typeof window === 'undefined') return fallback;
 
   const key = createUserSnapshotKey(userEmail);
+  const localState = readLocalValue<PersistedUserState>(key, fallback);
 
   try {
     const response = await fetch(`${PERSISTENCE_API}?key=${encodeURIComponent(key)}`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(2500),
     });
 
     if (!response.ok) throw new Error('Persistence request failed');
@@ -157,14 +159,13 @@ export async function loadPersistedUserState(userEmail: string, fallback: Persis
     const payload = await response.json();
     if (payload?.value && typeof payload.value === 'object') {
       const remoteState = payload.value as PersistedUserState;
-      const localState = readLocalValue<PersistedUserState>(key, fallback);
       return resolvePersistedUserState(remoteState, localState, fallback);
     }
   } catch {
-    // Fall back to local browser storage.
+    // Fall back to the local browser snapshot immediately.
   }
 
-  return readLocalValue(key, fallback);
+  return localState;
 }
 
 export async function savePersistedUserState(userEmail: string, state: PersistedUserState): Promise<void> {
@@ -182,6 +183,7 @@ export async function savePersistedUserState(userEmail: string, state: Persisted
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, value: payload }),
+      signal: AbortSignal.timeout(2500),
     });
 
     if (!response.ok) throw new Error('Persistence request failed');
@@ -203,6 +205,7 @@ export async function clearPersistedUserState(userEmail: string): Promise<void> 
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key }),
+      signal: AbortSignal.timeout(2500),
     });
 
     if (!response.ok) throw new Error('Persistence request failed');
