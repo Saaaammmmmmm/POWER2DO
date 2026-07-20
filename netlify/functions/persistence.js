@@ -16,10 +16,24 @@ function isUnavailableBlobError(error) {
     message.includes('not found') ||
     message.includes('no blob') ||
     message.includes('does not exist') ||
-    message.includes('not configured to use netlify blobs') ||
+    message.includes('netlify blobs') ||
+    message.includes('configured to use') ||
     message.includes('siteid') ||
-    message.includes('token')
+    message.includes('token') ||
+    message.includes('blob store')
   );
+}
+
+function createBlobStore(storeName) {
+  try {
+    return getStore({ name: storeName });
+  } catch (error) {
+    if (isUnavailableBlobError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function handler(event) {
@@ -35,11 +49,19 @@ export async function handler(event) {
 
   try {
     const storeName = process.env.BLOB_STORE_NAME || 'power2do-data';
-    const store = getStore({ name: storeName });
+    const store = createBlobStore(storeName);
     const key = event.queryStringParameters?.key || null;
 
     if (event.httpMethod === 'GET') {
       if (!key) {
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: null }),
+        };
+      }
+
+      if (!store) {
         return {
           statusCode: 200,
           headers: { ...headers, 'Content-Type': 'application/json' },
@@ -77,6 +99,14 @@ export async function handler(event) {
         };
       }
 
+      if (!store) {
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: true, fallback: true }),
+        };
+      }
+
       try {
         await store.setJSON(body.key, body.value);
       } catch (error) {
@@ -101,6 +131,14 @@ export async function handler(event) {
           statusCode: 400,
           headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ error: 'Missing key' }),
+        };
+      }
+
+      if (!store) {
+        return {
+          statusCode: 200,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: true, fallback: true }),
         };
       }
 
