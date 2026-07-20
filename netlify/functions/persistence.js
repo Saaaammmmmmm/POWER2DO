@@ -10,9 +10,16 @@ function getJsonBody(event) {
   }
 }
 
-function isMissingBlobError(error) {
-  const message = error?.message || '';
-  return message.includes('not found') || message.includes('No blob') || message.includes('does not exist');
+function isUnavailableBlobError(error) {
+  const message = (error?.message || '').toLowerCase();
+  return (
+    message.includes('not found') ||
+    message.includes('no blob') ||
+    message.includes('does not exist') ||
+    message.includes('not configured to use netlify blobs') ||
+    message.includes('siteid') ||
+    message.includes('token')
+  );
 }
 
 export async function handler(event) {
@@ -48,7 +55,7 @@ export async function handler(event) {
           body: JSON.stringify({ value }),
         };
       } catch (error) {
-        if (isMissingBlobError(error)) {
+        if (isUnavailableBlobError(error)) {
           return {
             statusCode: 200,
             headers: { ...headers, 'Content-Type': 'application/json' },
@@ -70,7 +77,20 @@ export async function handler(event) {
         };
       }
 
-      await store.setJSON(body.key, body.value);
+      try {
+        await store.setJSON(body.key, body.value);
+      } catch (error) {
+        if (isUnavailableBlobError(error)) {
+          return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ok: true, fallback: true }),
+          };
+        }
+
+        throw error;
+      }
+
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
@@ -84,7 +104,20 @@ export async function handler(event) {
         };
       }
 
-      await store.delete(body.key);
+      try {
+        await store.delete(body.key);
+      } catch (error) {
+        if (isUnavailableBlobError(error)) {
+          return {
+            statusCode: 200,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ok: true, fallback: true }),
+          };
+        }
+
+        throw error;
+      }
+
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
