@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Mail, Shield, Lock, LogIn } from 'lucide-react';
-import { initNetlifyIdentity } from '../lib/netlifyIdentity';
+
+const accessPassword = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_ACCESS_PASSWORD || 'power2do').trim();
 
 const persistSignedInUser = (email: string) => {
   if (typeof window === 'undefined') return;
@@ -18,65 +19,32 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
-    const identity = initNetlifyIdentity();
-    if (!identity) return;
-
-    identity.on('login', user => {
-      if (user?.email) {
-        persistSignedInUser(user.email);
-        onSignIn(user.email);
-      }
-    });
-
-    identity.on('logout', () => {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem('power_todo_user');
-      }
-    });
-
-    const currentUser = identity.currentUser();
-    if (currentUser?.email) {
-      persistSignedInUser(currentUser.email);
-      onSignIn(currentUser.email);
-    }
-  }, [onSignIn]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    const targetEmail = email.trim();
+    const targetEmail = (email.trim() || 'owner@power2do.local').trim();
     const targetPassword = password.trim();
 
-    if (!targetEmail || !targetPassword) {
-      setErrorMsg('Please enter both email and password.');
+    if (!targetPassword) {
+      setErrorMsg('Please enter the password.');
       return;
     }
 
-    try {
-      const identity = initNetlifyIdentity();
-      if (!identity) {
-        throw new Error('Netlify Identity is not available yet. Please refresh the page or deploy the site with Identity enabled.');
-      }
-
-      identity.open();
-      setSuccessMsg('Netlify Identity popup opened. Complete the sign-in there.');
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || 'Authentication failed. Please check credentials.');
+    if (targetPassword !== accessPassword) {
+      setErrorMsg('Wrong password. Try again.');
+      return;
     }
+
+    persistSignedInUser(targetEmail);
+    onSignIn(targetEmail);
+    setSuccessMsg('Access granted.');
   };
 
   const handleQuickSignIn = () => {
-    const identity = initNetlifyIdentity();
-    if (!identity) {
-      setErrorMsg('Netlify Identity is not ready yet. Please refresh the page.');
-      return;
-    }
-
-    identity.open();
+    setEmail('owner@power2do.local');
+    setPassword(accessPassword);
   };
 
   return (
@@ -108,7 +76,7 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
                   LOGIN
                 </h2>
                 <p className="text-xs font-semibold text-gray-500">
-                  Netlify Identity login active.
+                  Simple owner password login active.
                 </p>
               </div>
               <div className="text-xs font-bold text-gray-400 uppercase tracking-widest bg-gray-100 border border-gray-300 px-2 py-0.5 rounded-sm">
