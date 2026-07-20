@@ -76,10 +76,13 @@ export async function loadPersistedUserState(userEmail: string, fallback: Persis
 
     const payload = await response.json();
     if (payload?.value && typeof payload.value === 'object') {
+      const remoteState = payload.value as PersistedUserState;
+      const localState = readLocalValue<PersistedUserState>(key, fallback);
+      const latestState = (remoteState.updatedAt ?? 0) >= (localState.updatedAt ?? 0) ? remoteState : localState;
       return {
         ...fallback,
-        ...payload.value,
-        updatedAt: payload.value.updatedAt ?? 0,
+        ...latestState,
+        updatedAt: latestState.updatedAt ?? 0,
       } as PersistedUserState;
     }
   } catch {
@@ -93,7 +96,11 @@ export async function savePersistedUserState(userEmail: string, state: Persisted
   if (typeof window === 'undefined') return;
 
   const key = createUserSnapshotKey(userEmail);
-  const payload = { ...state, updatedAt: Date.now() };
+  const previousState = readLocalValue<PersistedUserState>(key, state);
+  const payload = {
+    ...state,
+    updatedAt: Math.max(previousState.updatedAt ?? 0, Date.now()),
+  };
 
   try {
     const response = await fetch(PERSISTENCE_API, {

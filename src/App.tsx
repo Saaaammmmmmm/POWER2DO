@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Task, Category, Space, AppSettings, GmailEmail, CustomFilter, StreakData } from './types';
 import { initialCategories, initialSpaces, initialTasks, initialGmailEmails, defaultSettings } from './utils/initialData';
 import { getAppTodayStr, formatDate, calculateRelativeTime, computeAutoPriorityScore, calculateStreak, formatMilitaryToDisplay } from './utils/taskHelpers';
@@ -80,6 +80,8 @@ export default function App() {
   // Streak Calendar Popover
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
 
+  const lastAppliedSnapshotRef = useRef<PersistedUserState | null>(null);
+
   // Active drag helper
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -160,6 +162,7 @@ export default function App() {
         setCustomFilters(seededState.filters);
         setGmailEmails(seededState.gmail);
         setStreakData(seededState.streak);
+        lastAppliedSnapshotRef.current = seededState;
       } else {
         setTasks(loadedState.tasks);
         setCategories(loadedState.categories);
@@ -168,6 +171,7 @@ export default function App() {
         setCustomFilters(loadedState.filters);
         setGmailEmails(loadedState.gmail);
         setStreakData(loadedState.streak);
+        lastAppliedSnapshotRef.current = loadedState;
       }
     };
 
@@ -190,6 +194,12 @@ export default function App() {
       };
 
       void loadPersistedUserState(currentUserEmail, fallbackState).then((nextState) => {
+        const lastAppliedSnapshot = lastAppliedSnapshotRef.current;
+        const lastAppliedAt = lastAppliedSnapshot?.updatedAt ?? 0;
+        if ((nextState.updatedAt ?? 0) <= lastAppliedAt) {
+          return;
+        }
+
         setTasks(nextState.tasks);
         setCategories(nextState.categories);
         setSpaces(nextState.spaces);
@@ -197,6 +207,7 @@ export default function App() {
         setCustomFilters(nextState.filters);
         setGmailEmails(nextState.gmail);
         setStreakData(nextState.streak);
+        lastAppliedSnapshotRef.current = nextState;
       });
     });
 
@@ -206,7 +217,7 @@ export default function App() {
   // SAVE CORE DATABASE STATES AUTOMATICALLY
   useEffect(() => {
     if (!currentUserEmail) return;
-    void savePersistedUserState(currentUserEmail, {
+    const snapshot: PersistedUserState = {
       tasks,
       categories,
       spaces,
@@ -215,7 +226,10 @@ export default function App() {
       gmail: gmailEmails,
       streak: streakData,
       updatedAt: Date.now(),
-    });
+    };
+
+    lastAppliedSnapshotRef.current = snapshot;
+    void savePersistedUserState(currentUserEmail, snapshot);
   }, [tasks, categories, spaces, settings, customFilters, gmailEmails, streakData, currentUserEmail]);
 
   // PARSE & INJECT URL FILTERS (BOOKMARKING)
