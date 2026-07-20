@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Task, Category, Space, AppSettings, GmailEmail, CustomFilter, StreakData } from './types';
 import { initialCategories, initialSpaces, initialTasks, initialGmailEmails, defaultSettings } from './utils/initialData';
 import { getAppTodayStr, formatDate, calculateRelativeTime, computeAutoPriorityScore, calculateStreak, formatMilitaryToDisplay } from './utils/taskHelpers';
-import { createUserStorageKey, loadPersistedValue, savePersistedValue, clearPersistedValue, subscribeToPersistenceSync } from './lib/persistence';
+import { createUserStorageKey, loadPersistedUserState, savePersistedUserState, clearPersistedUserState, subscribeToPersistenceSync, type PersistedUserState } from './lib/persistence';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -125,39 +125,49 @@ export default function App() {
     if (!currentUserEmail) return;
 
     const loadUserData = async () => {
-      const userPrefix = createUserStorageKey(currentUserEmail, '');
-
-      const [storedTasks, storedCats, storedSpaces, storedSettings, storedFilters, storedEmails, storedStreak] = await Promise.all([
-        loadPersistedValue<Task[]>(`${userPrefix}tasks`, initialTasks),
-        loadPersistedValue<Category[]>(`${userPrefix}categories`, initialCategories),
-        loadPersistedValue<Space[]>(`${userPrefix}spaces`, initialSpaces),
-        loadPersistedValue<AppSettings>(`${userPrefix}settings`, defaultSettings),
-        loadPersistedValue<CustomFilter[]>(`${userPrefix}filters`, []),
-        loadPersistedValue<GmailEmail[]>(`${userPrefix}gmail`, initialGmailEmails),
-        loadPersistedValue<StreakData>(`${userPrefix}streak`, {
+      const fallbackState: PersistedUserState = {
+        tasks: initialTasks,
+        categories: initialCategories,
+        spaces: initialSpaces,
+        settings: defaultSettings,
+        filters: [],
+        gmail: initialGmailEmails,
+        streak: {
           currentStreak: 0,
           lastActiveDate: '',
-          completionHistory: {}
-        }),
-      ]);
+          completionHistory: {},
+        },
+        updatedAt: 0,
+      };
 
-      setTasks(storedTasks);
-      setCategories(storedCats);
-      setSpaces(storedSpaces);
-      setSettings(storedSettings);
-      setCustomFilters(storedFilters);
-      setGmailEmails(storedEmails);
+      const loadedState = await loadPersistedUserState(currentUserEmail, fallbackState);
 
-      if (storedStreak.currentStreak === 0 && !storedStreak.lastActiveDate && Object.keys(storedStreak.completionHistory).length === 0) {
+      if (loadedState.streak.currentStreak === 0 && !loadedState.streak.lastActiveDate && Object.keys(loadedState.streak.completionHistory).length === 0) {
         const seededHistory: { [d: string]: number } = {};
         seededHistory[appTodayStr] = 1;
-        setStreakData({
-          currentStreak: 1,
-          lastActiveDate: appTodayStr,
-          completionHistory: seededHistory
-        });
+        const seededState = {
+          ...loadedState,
+          streak: {
+            currentStreak: 1,
+            lastActiveDate: appTodayStr,
+            completionHistory: seededHistory,
+          },
+        };
+        setTasks(seededState.tasks);
+        setCategories(seededState.categories);
+        setSpaces(seededState.spaces);
+        setSettings(seededState.settings);
+        setCustomFilters(seededState.filters);
+        setGmailEmails(seededState.gmail);
+        setStreakData(seededState.streak);
       } else {
-        setStreakData(storedStreak);
+        setTasks(loadedState.tasks);
+        setCategories(loadedState.categories);
+        setSpaces(loadedState.spaces);
+        setSettings(loadedState.settings);
+        setCustomFilters(loadedState.filters);
+        setGmailEmails(loadedState.gmail);
+        setStreakData(loadedState.streak);
       }
     };
 
@@ -167,42 +177,26 @@ export default function App() {
   useEffect(() => {
     if (!currentUserEmail) return;
 
-    const unsubscribe = subscribeToPersistenceSync(() => {
-      const userPrefix = createUserStorageKey(currentUserEmail, '');
-      void Promise.all([
-        loadPersistedValue<Task[]>(`${userPrefix}tasks`, tasks),
-        loadPersistedValue<Category[]>(`${userPrefix}categories`, categories),
-        loadPersistedValue<Space[]>(`${userPrefix}spaces`, spaces),
-        loadPersistedValue<AppSettings>(`${userPrefix}settings`, settings),
-        loadPersistedValue<CustomFilter[]>(`${userPrefix}filters`, customFilters),
-        loadPersistedValue<GmailEmail[]>(`${userPrefix}gmail`, gmailEmails),
-        loadPersistedValue<StreakData>(`${userPrefix}streak`, streakData),
-      ]).then(([nextTasks, nextCategories, nextSpaces, nextSettings, nextFilters, nextEmails, nextStreak]) => {
-        const currentKeys = new Set<string>();
-        const changedKeys = new Set<string>();
+    const unsubscribe = subscribeToPersistenceSync(currentUserEmail, () => {
+      const fallbackState: PersistedUserState = {
+        tasks,
+        categories,
+        spaces,
+        settings,
+        filters: customFilters,
+        gmail: gmailEmails,
+        streak: streakData,
+        updatedAt: Date.now(),
+      };
 
-        const compareAndSet = <T,>(key: string, nextValue: T, setter: React.Dispatch<React.SetStateAction<T>>) => {
-          const currentValue = (key === 'tasks' ? tasks : key === 'categories' ? categories : key === 'spaces' ? spaces : key === 'settings' ? settings : key === 'filters' ? customFilters : key === 'gmail' ? gmailEmails : streakData) as T;
-          if (JSON.stringify(currentValue) !== JSON.stringify(nextValue)) {
-            changedKeys.add(key);
-            setter(nextValue);
-          }
-        };
-
-        compareAndSet('tasks', nextTasks, setTasks);
-        compareAndSet('categories', nextCategories, setCategories);
-        compareAndSet('spaces', nextSpaces, setSpaces);
-        compareAndSet('settings', nextSettings, setSettings);
-        compareAndSet('filters', nextFilters, setCustomFilters);
-        compareAndSet('gmail', nextEmails, setGmailEmails);
-        compareAndSet('streak', nextStreak, setStreakData);
-
-        if (changedKeys.size > 0) {
-          const activeKey = Array.from(changedKeys)[0];
-          if (activeKey === 'tasks' || activeKey === 'categories' || activeKey === 'spaces' || activeKey === 'settings' || activeKey === 'filters' || activeKey === 'gmail' || activeKey === 'streak') {
-            currentKeys.add(activeKey);
-          }
-        }
+      void loadPersistedUserState(currentUserEmail, fallbackState).then((nextState) => {
+        setTasks(nextState.tasks);
+        setCategories(nextState.categories);
+        setSpaces(nextState.spaces);
+        setSettings(nextState.settings);
+        setCustomFilters(nextState.filters);
+        setGmailEmails(nextState.gmail);
+        setStreakData(nextState.streak);
       });
     });
 
@@ -212,45 +206,17 @@ export default function App() {
   // SAVE CORE DATABASE STATES AUTOMATICALLY
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}tasks`, tasks);
-  }, [tasks, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}categories`, categories);
-  }, [categories, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}spaces`, spaces);
-  }, [spaces, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}settings`, settings);
-  }, [settings, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}filters`, customFilters);
-  }, [customFilters, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}gmail`, gmailEmails);
-  }, [gmailEmails, currentUserEmail]);
-
-  useEffect(() => {
-    if (!currentUserEmail) return;
-    const userPrefix = createUserStorageKey(currentUserEmail, '');
-    void savePersistedValue(`${userPrefix}streak`, streakData);
-  }, [streakData, currentUserEmail]);
+    void savePersistedUserState(currentUserEmail, {
+      tasks,
+      categories,
+      spaces,
+      settings,
+      filters: customFilters,
+      gmail: gmailEmails,
+      streak: streakData,
+      updatedAt: Date.now(),
+    });
+  }, [tasks, categories, spaces, settings, customFilters, gmailEmails, streakData, currentUserEmail]);
 
   // PARSE & INJECT URL FILTERS (BOOKMARKING)
   useEffect(() => {
@@ -646,6 +612,9 @@ export default function App() {
   const handleSignOut = async () => {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('power_todo_user');
+    }
+    if (currentUserEmail) {
+      await clearPersistedUserState(currentUserEmail);
     }
     setCurrentUserEmail(null);
   };

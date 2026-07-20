@@ -1,4 +1,17 @@
+import type { AppSettings, Category, CustomFilter, GmailEmail, Space, StreakData, Task } from '../types';
+
 const PERSISTENCE_API = '/.netlify/functions/persistence';
+
+export interface PersistedUserState {
+  tasks: Task[];
+  categories: Category[];
+  spaces: Space[];
+  settings: AppSettings;
+  filters: CustomFilter[];
+  gmail: GmailEmail[];
+  streak: StreakData;
+  updatedAt: number;
+}
 
 function readLocalValue<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -28,6 +41,7 @@ function removeLocalValue(key: string) {
 
   try {
     window.localStorage.removeItem(key);
+    window.localStorage.removeItem(`${key}__updated_at`);
   } catch {
     // Ignore storage removal failures.
   }
@@ -43,8 +57,14 @@ export function createUserStorageKey(userEmail: string, suffix: string) {
   return `power_todo_${normalized || 'user'}_${suffix}`;
 }
 
-export async function loadPersistedValue<T>(key: string, fallback: T): Promise<T> {
+export function createUserSnapshotKey(userEmail: string) {
+  return createUserStorageKey(userEmail, 'snapshot');
+}
+
+export async function loadPersistedUserState(userEmail: string, fallback: PersistedUserState): Promise<PersistedUserState> {
   if (typeof window === 'undefined') return fallback;
+
+  const key = createUserSnapshotKey(userEmail);
 
   try {
     const response = await fetch(`${PERSISTENCE_API}?key=${encodeURIComponent(key)}`, {
@@ -55,32 +75,46 @@ export async function loadPersistedValue<T>(key: string, fallback: T): Promise<T
     if (!response.ok) throw new Error('Persistence request failed');
 
     const payload = await response.json();
-    if (payload?.value === undefined) return fallback;
-    return payload.value as T;
+    if (payload?.value && typeof payload.value === 'object') {
+      return {
+        ...fallback,
+        ...payload.value,
+        updatedAt: payload.value.updatedAt ?? 0,
+      } as PersistedUserState;
+    }
   } catch {
-    return readLocalValue(key, fallback);
+    // Fall back to local browser storage.
   }
+
+  return readLocalValue(key, fallback);
 }
 
-export async function savePersistedValue<T>(key: string, value: T): Promise<void> {
+export async function savePersistedUserState(userEmail: string, state: PersistedUserState): Promise<void> {
   if (typeof window === 'undefined') return;
+
+  const key = createUserSnapshotKey(userEmail);
+  const payload = { ...state, updatedAt: Date.now() };
 
   try {
     const response = await fetch(PERSISTENCE_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value }),
+      body: JSON.stringify({ key, value: payload }),
     });
 
     if (!response.ok) throw new Error('Persistence request failed');
-    writeLocalValue(key, value);
   } catch {
-    writeLocalValue(key, value);
+    // Ignore and keep the local fallback copy.
   }
+
+  writeLocalValue(key, payload);
+  notifyPersistenceSync(userEmail);
 }
 
-export async function clearPersistedValue(key: string): Promise<void> {
+export async function clearPersistedUserState(userEmail: string): Promise<void> {
   if (typeof window === 'undefined') return;
+
+  const key = createUserSnapshotKey(userEmail);
 
   try {
     const response = await fetch(PERSISTENCE_API, {
@@ -95,17 +129,48 @@ export async function clearPersistedValue(key: string): Promise<void> {
   }
 
   removeLocalValue(key);
+  notifyPersistenceSync(userEmail);
 }
 
-export function subscribeToPersistenceSync(callback: () => void) {
+export function subscribeToPersistenceSync(userEmail: string, callback: () => void) {
   if (typeof window === 'undefined') return () => {};
 
   const onStorage = (event: StorageEvent) => {
     if (!event.key) return;
-    if (event.key.endsWith('__updated_at')) return;
+    if (event.key.includes('__updated_at')) return;
+    if (!event.key.includes(createUserSnapshotKey(userEmail))) return;
     callback();
   };
 
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('power2do-sync') : null;
+  const onMessage = (event: MessageEvent) => {
+    if (event.data?.type === 'sync' && event.data.userEmail === userEmail) {
+      callback();
+    }
+  };
+
+  const onCustomSync = () => callback();
+
+  const pollId = window.setInterval(callback, 1500);
+
   window.addEventListener('storage', onStorage);
-  return () => window.removeEventListener('storage', onStorage);
+  window.addEventListener('power2do-sync', onCustomSync);
+  channel?.addEventListener('message', onMessage);
+
+  return () => {
+    window.clearInterval(pollId);
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('power2do-sync', onCustomSync);
+    channel?.removeEventListener('message', onMessage);
+    channel?.close();
+  };
+}
+
+function notifyPersistenceSync(userEmail: string) {
+  if (typeof window === 'undefined') return;
+
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('power2do-sync') : null;
+  channel?.postMessage({ type: 'sync', userEmail });
+  window.dispatchEvent(new CustomEvent('power2do-sync', { detail: { userEmail } }));
+  channel?.close();
 }
