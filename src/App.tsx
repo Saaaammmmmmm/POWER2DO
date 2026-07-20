@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Task, Category, Space, AppSettings, GmailEmail, CustomFilter, StreakData } from './types';
 import { initialCategories, initialSpaces, initialTasks, initialGmailEmails, defaultSettings } from './utils/initialData';
 import { getAppTodayStr, formatDate, calculateRelativeTime, computeAutoPriorityScore, calculateStreak, formatMilitaryToDisplay } from './utils/taskHelpers';
+import { createUserStorageKey, loadPersistedValue, savePersistedValue, clearPersistedValue } from './lib/persistence';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -36,7 +37,8 @@ import {
 export default function App() {
   // 1. AUTH / SIGN IN STATE
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => {
-    return localStorage.getItem('power_todo_user') || null;
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem('power_todo_user') || null;
   });
 
   // 2. CORE STATES
@@ -122,105 +124,87 @@ export default function App() {
   useEffect(() => {
     if (!currentUserEmail) return;
 
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    
-    const storedTasks = localStorage.getItem(`${userPrefix}tasks`);
-    if (storedTasks) {
-      setTasks(JSON.parse(storedTasks));
-    } else {
-      setTasks(initialTasks);
-    }
+    const loadUserData = async () => {
+      const userPrefix = createUserStorageKey(currentUserEmail, '');
 
-    const storedCats = localStorage.getItem(`${userPrefix}categories`);
-    if (storedCats) {
-      setCategories(JSON.parse(storedCats));
-    } else {
-      setCategories(initialCategories);
-    }
+      const [storedTasks, storedCats, storedSpaces, storedSettings, storedFilters, storedEmails, storedStreak] = await Promise.all([
+        loadPersistedValue<Task[]>(`${userPrefix}tasks`, initialTasks),
+        loadPersistedValue<Category[]>(`${userPrefix}categories`, initialCategories),
+        loadPersistedValue<Space[]>(`${userPrefix}spaces`, initialSpaces),
+        loadPersistedValue<AppSettings>(`${userPrefix}settings`, defaultSettings),
+        loadPersistedValue<CustomFilter[]>(`${userPrefix}filters`, []),
+        loadPersistedValue<GmailEmail[]>(`${userPrefix}gmail`, initialGmailEmails),
+        loadPersistedValue<StreakData>(`${userPrefix}streak`, {
+          currentStreak: 0,
+          lastActiveDate: '',
+          completionHistory: {}
+        }),
+      ]);
 
-    const storedSpaces = localStorage.getItem(`${userPrefix}spaces`);
-    if (storedSpaces) {
-      setSpaces(JSON.parse(storedSpaces));
-    } else {
-      setSpaces(initialSpaces);
-    }
+      setTasks(storedTasks);
+      setCategories(storedCats);
+      setSpaces(storedSpaces);
+      setSettings(storedSettings);
+      setCustomFilters(storedFilters);
+      setGmailEmails(storedEmails);
 
-    const storedSettings = localStorage.getItem(`${userPrefix}settings`);
-    if (storedSettings) {
-      setSettings(JSON.parse(storedSettings));
-    } else {
-      setSettings(defaultSettings);
-    }
+      if (storedStreak.currentStreak === 0 && !storedStreak.lastActiveDate && Object.keys(storedStreak.completionHistory).length === 0) {
+        const seededHistory: { [d: string]: number } = {};
+        seededHistory[appTodayStr] = 1;
+        setStreakData({
+          currentStreak: 1,
+          lastActiveDate: appTodayStr,
+          completionHistory: seededHistory
+        });
+      } else {
+        setStreakData(storedStreak);
+      }
+    };
 
-    const storedFilters = localStorage.getItem(`${userPrefix}filters`);
-    if (storedFilters) {
-      setCustomFilters(JSON.parse(storedFilters));
-    } else {
-      setCustomFilters([]);
-    }
-
-    const storedEmails = localStorage.getItem(`${userPrefix}gmail`);
-    if (storedEmails) {
-      setGmailEmails(JSON.parse(storedEmails));
-    } else {
-      setGmailEmails(initialGmailEmails);
-    }
-
-    const storedStreak = localStorage.getItem(`${userPrefix}streak`);
-    if (storedStreak) {
-      setStreakData(JSON.parse(storedStreak));
-    } else {
-      const seededHistory: { [d: string]: number } = {};
-      seededHistory[appTodayStr] = 1;
-      setStreakData({
-        currentStreak: 1,
-        lastActiveDate: appTodayStr,
-        completionHistory: seededHistory
-      });
-    }
-  }, [currentUserEmail]);
+    loadUserData();
+  }, [currentUserEmail, appTodayStr]);
 
   // SAVE CORE DATABASE STATES AUTOMATICALLY
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}tasks`, JSON.stringify(tasks));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}tasks`, tasks);
   }, [tasks, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}categories`, JSON.stringify(categories));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}categories`, categories);
   }, [categories, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}spaces`, JSON.stringify(spaces));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}spaces`, spaces);
   }, [spaces, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}settings`, JSON.stringify(settings));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}settings`, settings);
   }, [settings, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}filters`, JSON.stringify(customFilters));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}filters`, customFilters);
   }, [customFilters, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}gmail`, JSON.stringify(gmailEmails));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}gmail`, gmailEmails);
   }, [gmailEmails, currentUserEmail]);
 
   useEffect(() => {
     if (!currentUserEmail) return;
-    const userPrefix = `power_todo_${currentUserEmail}_`;
-    localStorage.setItem(`${userPrefix}streak`, JSON.stringify(streakData));
+    const userPrefix = createUserStorageKey(currentUserEmail, '');
+    void savePersistedValue(`${userPrefix}streak`, streakData);
   }, [streakData, currentUserEmail]);
 
   // PARSE & INJECT URL FILTERS (BOOKMARKING)
@@ -614,8 +598,10 @@ export default function App() {
     }
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('power_todo_user');
+  const handleSignOut = async () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('power_todo_user');
+    }
     setCurrentUserEmail(null);
   };
 

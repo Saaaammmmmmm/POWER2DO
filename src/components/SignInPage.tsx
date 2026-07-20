@@ -3,6 +3,11 @@ import { Mail, Shield, Check, Info, Lock, LogIn } from 'lucide-react';
 import { auth, isFirebaseConfigured, localAuth } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
+const persistSignedInUser = (email: string) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem('power_todo_user', email);
+};
+
 interface SignInPageProps {
   onSignIn: (email: string) => void;
   currentUserEmail: string;
@@ -31,6 +36,7 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
       if (isFirebaseConfigured && auth) {
         try {
           await signInWithEmailAndPassword(auth, targetEmail, targetPassword);
+          persistSignedInUser(targetEmail);
           onSignIn(targetEmail);
         } catch (fbErr: any) {
           // Self-healing credential provider: If user logs in with the required samdonckels@gmail.com/Doing4ever! account
@@ -40,6 +46,7 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
           if (isTargetCreds && isUserNotFound) {
             try {
               await createUserWithEmailAndPassword(auth, targetEmail, targetPassword);
+              persistSignedInUser(targetEmail);
               onSignIn(targetEmail);
               return;
             } catch (createErr) {
@@ -51,6 +58,7 @@ export default function SignInPage({ onSignIn, currentUserEmail }: SignInPagePro
       } else {
         // Fallback local localStorage Auth
         await localAuth.signIn(targetEmail, targetPassword);
+        persistSignedInUser(targetEmail);
         onSignIn(targetEmail);
       }
     } catch (err: any) {
