@@ -143,36 +143,31 @@ export default function App() {
       };
 
       const loadedState = await loadPersistedUserState(currentUserEmail, fallbackState);
+      const resolvedState = loadedState.streak.currentStreak === 0 && !loadedState.streak.lastActiveDate && Object.keys(loadedState.streak.completionHistory).length === 0
+        ? {
+            ...loadedState,
+            streak: {
+              currentStreak: 1,
+              lastActiveDate: appTodayStr,
+              completionHistory: {
+                [appTodayStr]: 1,
+              },
+            },
+          }
+        : loadedState;
 
-      if (loadedState.streak.currentStreak === 0 && !loadedState.streak.lastActiveDate && Object.keys(loadedState.streak.completionHistory).length === 0) {
-        const seededHistory: { [d: string]: number } = {};
-        seededHistory[appTodayStr] = 1;
-        const seededState = {
-          ...loadedState,
-          streak: {
-            currentStreak: 1,
-            lastActiveDate: appTodayStr,
-            completionHistory: seededHistory,
-          },
-        };
-        setTasks(seededState.tasks);
-        setCategories(seededState.categories);
-        setSpaces(seededState.spaces);
-        setSettings(seededState.settings);
-        setCustomFilters(seededState.filters);
-        setGmailEmails(seededState.gmail);
-        setStreakData(seededState.streak);
-        lastAppliedSnapshotRef.current = seededState;
-      } else {
-        setTasks(loadedState.tasks);
-        setCategories(loadedState.categories);
-        setSpaces(loadedState.spaces);
-        setSettings(loadedState.settings);
-        setCustomFilters(loadedState.filters);
-        setGmailEmails(loadedState.gmail);
-        setStreakData(loadedState.streak);
-        lastAppliedSnapshotRef.current = loadedState;
-      }
+      lastAppliedSnapshotRef.current = resolvedState;
+      setTasks(resolvedState.tasks);
+      setCategories(resolvedState.categories);
+      setSpaces(resolvedState.spaces);
+      setSettings(resolvedState.settings);
+      setCustomFilters(resolvedState.filters);
+      setGmailEmails(resolvedState.gmail);
+      setStreakData(resolvedState.streak);
+      void savePersistedUserState(currentUserEmail, {
+        ...resolvedState,
+        updatedAt: Date.now(),
+      });
     };
 
     loadUserData();

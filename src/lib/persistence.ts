@@ -13,6 +13,61 @@ export interface PersistedUserState {
   updatedAt: number;
 }
 
+function isPersistedUserState(value: unknown): value is PersistedUserState {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<PersistedUserState>;
+  return (
+    Array.isArray(candidate.tasks) &&
+    Array.isArray(candidate.categories) &&
+    Array.isArray(candidate.spaces) &&
+    Array.isArray(candidate.filters) &&
+    Array.isArray(candidate.gmail) &&
+    typeof candidate.settings === 'object' &&
+    typeof candidate.streak === 'object'
+  );
+}
+
+export function resolvePersistedUserState(
+  remoteState: Partial<PersistedUserState> | null | undefined,
+  localState: Partial<PersistedUserState> | null | undefined,
+  fallback: PersistedUserState,
+): PersistedUserState {
+  const candidates: Array<Partial<PersistedUserState>> = [];
+
+  if (isPersistedUserState(remoteState)) {
+    candidates.push(remoteState);
+  }
+
+  if (isPersistedUserState(localState)) {
+    candidates.push(localState);
+  }
+
+  candidates.push(fallback);
+
+  const latest = candidates.reduce<Partial<PersistedUserState> | null>((best, candidate) => {
+    if (!best) return candidate;
+    if (!candidate) return best;
+
+    const bestUpdatedAt = best.updatedAt ?? 0;
+    const candidateUpdatedAt = candidate.updatedAt ?? 0;
+
+    if (candidateUpdatedAt > bestUpdatedAt) {
+      return candidate;
+    }
+
+    return best;
+  }, null);
+
+  const chosen = latest ?? fallback;
+
+  return {
+    ...fallback,
+    ...chosen,
+    updatedAt: chosen.updatedAt ?? 0,
+  } as PersistedUserState;
+}
+
 function readLocalValue<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
 
@@ -78,12 +133,7 @@ export async function loadPersistedUserState(userEmail: string, fallback: Persis
     if (payload?.value && typeof payload.value === 'object') {
       const remoteState = payload.value as PersistedUserState;
       const localState = readLocalValue<PersistedUserState>(key, fallback);
-      const latestState = (remoteState.updatedAt ?? 0) >= (localState.updatedAt ?? 0) ? remoteState : localState;
-      return {
-        ...fallback,
-        ...latestState,
-        updatedAt: latestState.updatedAt ?? 0,
-      } as PersistedUserState;
+      return resolvePersistedUserState(remoteState, localState, fallback);
     }
   } catch {
     // Fall back to local browser storage.
