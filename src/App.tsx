@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Task, Category, Space, AppSettings, GmailEmail, CustomFilter, StreakData } from './types';
 import { initialCategories, initialSpaces, initialTasks, initialGmailEmails, defaultSettings } from './utils/initialData';
 import { getAppTodayStr, formatDate, calculateRelativeTime, computeAutoPriorityScore, calculateStreak, formatMilitaryToDisplay } from './utils/taskHelpers';
-import { createUserStorageKey, loadPersistedValue, savePersistedValue, clearPersistedValue } from './lib/persistence';
+import { createUserStorageKey, loadPersistedValue, savePersistedValue, clearPersistedValue, subscribeToPersistenceSync } from './lib/persistence';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -163,6 +163,33 @@ export default function App() {
 
     loadUserData();
   }, [currentUserEmail, appTodayStr]);
+
+  useEffect(() => {
+    if (!currentUserEmail) return;
+
+    const unsubscribe = subscribeToPersistenceSync(() => {
+      const userPrefix = createUserStorageKey(currentUserEmail, '');
+      void Promise.all([
+        loadPersistedValue<Task[]>(`${userPrefix}tasks`, tasks),
+        loadPersistedValue<Category[]>(`${userPrefix}categories`, categories),
+        loadPersistedValue<Space[]>(`${userPrefix}spaces`, spaces),
+        loadPersistedValue<AppSettings>(`${userPrefix}settings`, settings),
+        loadPersistedValue<CustomFilter[]>(`${userPrefix}filters`, customFilters),
+        loadPersistedValue<GmailEmail[]>(`${userPrefix}gmail`, gmailEmails),
+        loadPersistedValue<StreakData>(`${userPrefix}streak`, streakData),
+      ]).then(([nextTasks, nextCategories, nextSpaces, nextSettings, nextFilters, nextEmails, nextStreak]) => {
+        setTasks(nextTasks);
+        setCategories(nextCategories);
+        setSpaces(nextSpaces);
+        setSettings(nextSettings);
+        setCustomFilters(nextFilters);
+        setGmailEmails(nextEmails);
+        setStreakData(nextStreak);
+      });
+    });
+
+    return unsubscribe;
+  }, [currentUserEmail, tasks, categories, spaces, settings, customFilters, gmailEmails, streakData]);
 
   // SAVE CORE DATABASE STATES AUTOMATICALLY
   useEffect(() => {

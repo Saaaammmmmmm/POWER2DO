@@ -17,6 +17,7 @@ function writeLocalValue(key: string, value: unknown) {
 
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(`${key}__updated_at`, String(Date.now()));
   } catch {
     // Ignore storage write failures so the app remains usable.
   }
@@ -72,6 +73,7 @@ export async function savePersistedValue<T>(key: string, value: T): Promise<void
     });
 
     if (!response.ok) throw new Error('Persistence request failed');
+    writeLocalValue(key, value);
   } catch {
     writeLocalValue(key, value);
   }
@@ -93,4 +95,17 @@ export async function clearPersistedValue(key: string): Promise<void> {
   }
 
   removeLocalValue(key);
+}
+
+export function subscribeToPersistenceSync(callback: () => void) {
+  if (typeof window === 'undefined') return () => {};
+
+  const onStorage = (event: StorageEvent) => {
+    if (!event.key) return;
+    if (event.key.endsWith('__updated_at')) return;
+    callback();
+  };
+
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
 }
