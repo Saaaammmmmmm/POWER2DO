@@ -156,6 +156,8 @@ export default function App() {
           }
         : loadedState;
 
+      const hasExistingUserData = resolvedState.tasks.length > 0 || resolvedState.categories.length > 0 || resolvedState.spaces.length > 0 || resolvedState.filters.length > 0 || resolvedState.gmail.length > 0 || resolvedState.settings.defaultCategory || resolvedState.settings.defaultDuration > 0 || resolvedState.streak.currentStreak > 0 || resolvedState.streak.lastActiveDate;
+
       lastAppliedSnapshotRef.current = resolvedState;
       setTasks(resolvedState.tasks);
       setCategories(resolvedState.categories);
@@ -164,10 +166,13 @@ export default function App() {
       setCustomFilters(resolvedState.filters);
       setGmailEmails(resolvedState.gmail);
       setStreakData(resolvedState.streak);
-      void savePersistedUserState(currentUserEmail, {
-        ...resolvedState,
-        updatedAt: Date.now(),
-      });
+
+      if (hasExistingUserData) {
+        void savePersistedUserState(currentUserEmail, {
+          ...resolvedState,
+          updatedAt: Date.now(),
+        });
+      }
     };
 
     loadUserData();

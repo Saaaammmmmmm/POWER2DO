@@ -28,6 +28,17 @@ function isPersistedUserState(value: unknown): value is PersistedUserState {
   );
 }
 
+function hasMeaningfulPersistedUserState(value: Partial<PersistedUserState> | null | undefined, fallback: PersistedUserState): boolean {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<PersistedUserState>;
+  const hasDataArrays = [candidate.tasks, candidate.categories, candidate.spaces, candidate.filters, candidate.gmail].some((entry) => Array.isArray(entry) && entry.length > 0);
+  const hasDifferentSettings = JSON.stringify(candidate.settings) !== JSON.stringify(fallback.settings);
+  const hasStreakData = (candidate.streak?.currentStreak ?? 0) > 0 || !!candidate.streak?.lastActiveDate || Object.keys(candidate.streak?.completionHistory ?? {}).length > 0;
+
+  return hasDataArrays || hasDifferentSettings || hasStreakData;
+}
+
 export function resolvePersistedUserState(
   remoteState: Partial<PersistedUserState> | null | undefined,
   localState: Partial<PersistedUserState> | null | undefined,
@@ -45,9 +56,23 @@ export function resolvePersistedUserState(
 
   candidates.push(fallback);
 
-  const latest = candidates.reduce<Partial<PersistedUserState> | null>((best, candidate) => {
+  const meaningfulCandidates = candidates.filter((candidate) => hasMeaningfulPersistedUserState(candidate, fallback));
+  const candidatePool = meaningfulCandidates.length > 0 ? meaningfulCandidates : candidates;
+
+  const latest = candidatePool.reduce<Partial<PersistedUserState> | null>((best, candidate) => {
     if (!best) return candidate;
     if (!candidate) return best;
+
+    const bestMeaningful = hasMeaningfulPersistedUserState(best, fallback);
+    const candidateMeaningful = hasMeaningfulPersistedUserState(candidate, fallback);
+
+    if (candidateMeaningful && !bestMeaningful) {
+      return candidate;
+    }
+
+    if (!candidateMeaningful && bestMeaningful) {
+      return best;
+    }
 
     const bestUpdatedAt = best.updatedAt ?? 0;
     const candidateUpdatedAt = candidate.updatedAt ?? 0;
