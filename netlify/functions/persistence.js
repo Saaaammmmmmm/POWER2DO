@@ -1,6 +1,6 @@
-const { getStore } = require('@netlify/blobs');
+import { getStore } from '@netlify/blobs';
 
-exports.handler = async (event, context) => {
+export async function handler(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,7 +12,8 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const store = getStore({ name: 'power2do-data' });
+    const storeName = process.env.BLOB_STORE_NAME || 'power2do-data';
+    const store = getStore({ name: storeName });
     const key = event.queryStringParameters?.key || null;
 
     if (event.httpMethod === 'GET' && key) {
@@ -44,4 +45,4 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: error.message || 'Persistence failure' }),
     };
   }
-};
+}
