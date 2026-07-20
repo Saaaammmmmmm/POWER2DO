@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>POWER 2DO</title>
+    <!-- Comic Book and Handdrawn fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+    <!-- Icon representing POWER TO-DO -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23FFDE4D%22 stroke=%22black%22 stroke-width=%228%22/><text y=%2270%22 x=%2212%22 font-family=%22Impact, Arial%22 font-size=%2265%22 fill=%22%23FF007F%22 stroke=%22black%22 stroke-width=%224%22 font-weight=%22bold%22>P!</text></svg>" />
+  </head>
+  <body class="bg-[#F3F4F6]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBZMQMHEBxdmQAek4CU1W6qFTDOlR8SKHE",
+    authDomain: "power-2do.firebaseapp.com",
+    projectId: "power-2do",
+    storageBucket: "power-2do.firebasestorage.app",
+    messagingSenderId: "810447910277",
+    appId: "1:810447910277:web:31e89bcc4bcb364d4340ec",
+    measurementId: "G-X1EX7PBQMW"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+  </body>
+</html>
+

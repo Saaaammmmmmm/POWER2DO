@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Comic Neue", "Comic Sans MS", cursive, sans-serif;
+  --font-comic: "Impact", "Arial Black", "Bangers", sans-serif;
+  --font-marker: "Permanent Marker", cursive, sans-serif;
+}
+
+/* Custom Comic Halftone and Speckled classes */
+.comic-halftone {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 15%, transparent 16%);
+  background-size: 6px 6px;
+}
+
+.comic-halftone-dense {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.12) 18%, transparent 19%);
+  background-size: 4px 4px;
+}
+
+.immersive-bg {
+  background-color: #FFDE00;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1.5px, transparent 0);
+  background-size: 6px 6px;
+}
+
+.halftone-red {
+  background-color: #FF4B2B;
+  background-image: radial-gradient(#000 1px, transparent 0);
+  background-size: 4px 4px;
+}
+
+.halftone-blue {
+  background-color: #2B95FF;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 0);
+  background-size: 5px 5px;
+}
+
+.comic-border {
+  border: 4px solid #000000;
+}
+
+.comic-border-lg {
+  border: 8px solid #000000;
+}
+
+.comic-shadow {
+  box-shadow: 6px 6px 0px 0px #000000;
+}
+
+.comic-shadow-sm {
+  box-shadow: 3px 3px 0px 0px #000000;
+}
+
+.comic-shadow-lg {
+  box-shadow: 8px 8px 0px 0px #000000;
+}
+
+.comic-title-3d {
+  color: #FF4B2B;
+  text-shadow: 2px 2px 0 #000, 4px 4px 0 #FFDE00, 6px 6px 0 #000;
+  -webkit-text-stroke: 1.5px black;
+}
+
+/* Wiggle animation for newly-created missions */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(-5deg) scale(1.05); }
+  30% { transform: rotate(4deg) scale(1.05); }
+  45% { transform: rotate(-4deg) scale(1.03); }
+  60% { transform: rotate(3deg) scale(1.03); }
+  75% { transform: rotate(-2deg) scale(1.01); }
+  90% { transform: rotate(1deg) scale(1.01); }
+}
+.animate-wiggle {
+  animation: wiggle 0.8s ease-in-out;
+}
+
+/* Spiky comic interjection shape */
+.comic-spiky {
+  clip-path: polygon(
+    0% 20%, 12% 5%, 22% 25%, 38% 0%, 48% 28%, 62% 3%, 72% 32%, 88% 5%, 95% 38%, 100% 25%, 100% 65%,
+    90% 82%, 98% 95%, 78% 85%, 65% 100%, 52% 80%, 35% 98%, 22% 78%, 8% 95%, 0% 70%, 10% 52%, 0% 38%
+  );
+}
+
+/* Animation for comic popups */
+@keyframes comicPop {
+  0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+  50% { transform: scale(1.1) rotate(10deg); }
+  70% { transform: scale(0.9) rotate(-5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.animate-comic-pop {
+  animation: comicPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #FFFFFF;
+  border-left: 4px solid #000;
+}
+::-webkit-scrollbar-thumb {
+  background: #FFDE00;
+  border: 4px solid #000;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FF4B2B;
+}
+

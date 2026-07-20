@@ -1,0 +1,6 @@
+{
+  "name": "POWER 2DO",
+  "description": "Your ideal comic-book themed task manager featuring subtasks, drag-and-drop organisation, visual spaces, sub-categorisation, dynamic search, calendar views, Gantt charts, Gmail sync, and streak calendar dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
